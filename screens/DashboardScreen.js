@@ -51,17 +51,25 @@ export default function DashboardScreen() {
               <Text style={styles.cardText}>Active Events</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.card} onPress={() => {
-              navigation.navigate("Leaderboard");
-            }}>
-              <Ionicons name="trophy" size={30} color="#D4AF37" />  
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => {
+                navigation.navigate("Leaderboard");
+              }}
+            >
+              <Ionicons name="trophy" size={30} color="#D4AF37" />
               <Text style={styles.cardText}>Leaderboard</Text>
             </TouchableOpacity>
           </View>
 
           {/* Administrator Management Section */}
           <Text style={styles.sectionTitle}>Administrator Management</Text>
-          <View style={[styles.gridContainer, {justifyContent: "flex-start", columnGap: 20}]}>
+          <View
+            style={[
+              styles.gridContainer,
+              { justifyContent: "flex-start", columnGap: 20 },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.card, styles.blueCard]}
               onPress={() => {
@@ -110,16 +118,16 @@ export default function DashboardScreen() {
           </View>
 
           {/* Custom Notification Section */}
-          <Text style={styles.sectionTitle}>Custom Notification</Text>
+          {/* <Text style={styles.sectionTitle}>Custom Notification</Text>
           <TextInput
             style={styles.input}
             placeholder="Write your custom notification here..."
             maxLength={31}
-          />
-          <Text style={styles.charCount}>0/31</Text>
+          /> */}
+          {/* <Text style={styles.charCount}>0/31</Text> */}
 
           {/* Notification Toggle Options */}
-          <View style={styles.switchContainer}>
+          {/* <View style={styles.switchContainer}>
             <View style={styles.switchOption}>
               <Switch
                 value={inAppNotification}
@@ -135,10 +143,10 @@ export default function DashboardScreen() {
               />
               <Text style={styles.switchText}>Send push notification</Text>
             </View>
-          </View>
+          </View> */}
 
           {/* Buttons */}
-          <View style={styles.buttonContainer}>
+          {/* <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={() => navigation.navigate("NotificationsScreen")}
@@ -151,7 +159,7 @@ export default function DashboardScreen() {
             <TouchableOpacity style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Send Notification</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

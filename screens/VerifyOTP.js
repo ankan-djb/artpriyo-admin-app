@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import apiService from '../services/api';
 
 const VerifyOTP = () => {
   const navigation = useNavigation();
@@ -41,7 +42,7 @@ const VerifyOTP = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(' http://192.168.53.115:8080/api/admin/verify-otp', {
+      const response = await apiService.adminService.verifyOTP({
         email,
         otp
       });

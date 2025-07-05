@@ -280,6 +280,29 @@ const userService = {
   },
 };
 
+// Admin Service
+const adminService = {
+  // Get all administrators
+  getAllAdmins: async () => {
+    return axiosInstance.get("/admin/list");
+  },
+
+  // Add administrator
+  addAdmin: async (data) => {
+    return axiosInstance.post("/admin/add", data);
+  },
+
+  // Update admin role/permissions
+  updateAdminRole: async (adminId, data) => {
+    return axiosInstance.put(`/admin/${adminId}/role`, data);
+  },
+
+  // Verify OTP
+  verifyOTP: async (data) => {
+    return axiosInstance.post("/admin/verify-otp", data);
+  },
+};
+
 // AUTH ENDPOINTS
 export const endpoints = {
   SENDOTP_API: BASE_URL + "/user/sendotp",
@@ -330,4 +353,5 @@ export default apiService = {
   userService,
   eventService,
   transactionService,
+  adminService,
 };

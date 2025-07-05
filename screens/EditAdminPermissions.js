@@ -15,6 +15,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import apiService from '../services/api';
 
 const EditAdminPermissions = () => {
   const navigation = useNavigation();
@@ -39,22 +40,7 @@ const EditAdminPermissions = () => {
 
     setIsLoading(true);
     try {
-      const token = await AsyncStorage.getItem('adminToken');
-      if (!token) {
-        Alert.alert('Error', 'Authentication token not found. Please login again.');
-        navigation.replace('AdminLogin');
-        return;
-      }
-
-      const response = await axios.patch(
-        ` http://192.168.53.115:8080/api/admin/${admin._id}/role`,
-        { role: selectedRole },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      const response = await apiService.adminService.updateAdminRole(admin._id, { role: selectedRole });
 
       if (response.data.success) {
         Alert.alert('Success', 'Administrator role updated successfully', [
