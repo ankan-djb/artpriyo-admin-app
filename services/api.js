@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 
 // Environment configuration
 const PROD_URL = "https://artpriyo-backend.onrender.com/api/";
-const DEV_URL = "http://192.168.229.115:8080/api/";
+const DEV_URL = "http://10.227.195.115:8080/api/";
 
 // Set the base URL based on the environment
 const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
@@ -236,6 +236,16 @@ const postService = {
   getCommentsCount: async (postId) => {
     return axiosInstance.get(`/post/comments/${postId}`);
   },
+
+  getReportedPosts: async (page, limit) => {
+    return axiosInstance.get(
+      `/post/reports`
+    );
+  },
+
+  sendActionReports: async (postId, action, reason) => {
+    return axiosInstance.post(`/post/reports/${postId}`, { action, reason });
+  }
 };
 
 // Transaction Service
@@ -317,6 +327,15 @@ const adminService = {
   },
 };
 
+const userManagementService = {
+  getUsers: async (page, limit) => {
+    return axiosInstance.get(`/v1/auth/users?page=${page}&limit=${limit}`);
+  },
+  actionUser: async (userId, action, reason) => {
+    return axiosInstance.post(`/v1/auth/banning/${userId}`, { banStatus: action, reason });
+  },
+};
+
 // AUTH ENDPOINTS
 export const endpoints = {
   SENDOTP_API: BASE_URL + "/user/sendotp",
@@ -368,4 +387,5 @@ export default apiService = {
   eventService,
   transactionService,
   adminService,
+  userManagementService,
 };

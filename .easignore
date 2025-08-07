@@ -1,0 +1,27 @@
+# Ignore node_modules and build artifacts
+node_modules/
+build/
+dist/
+.expo/
+.expo-shared/
+web-build/
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore log files
+*.log
+
+# Ignore test coverage
+coverage/
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Windows system files
+Thumbs.db

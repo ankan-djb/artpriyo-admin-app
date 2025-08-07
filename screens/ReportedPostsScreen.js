@@ -13,6 +13,7 @@ import {
   TextInput,
   ScrollView,
   StatusBar,
+  ToastAndroid,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,125 +27,39 @@ const ReportedPostsScreen = ({ navigation }) => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [actionReason, setActionReason] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchReportedPosts = async () => {
-    setRefreshing(true);
+  const fetchReportedPosts = async (pageToFetch = 1, append = false) => {
+    if (append) setLoadingMore(true);
+    else setRefreshing(true);
     try {
-      // Replace with actual API call
-      const mockData = [
-        {
-          _id: "1",
-          post: {
-            _id: "post1",
-            content: "This is some inappropriate content that violates community guidelines...",
-            imageUrl: "https://via.placeholder.com/300x200",
-            author: {
-              _id: "user1",
-              username: "problematic_user",
-              profilePicture: "https://via.placeholder.com/50",
-            },
-            createdAt: "2025-01-05T08:30:00Z",
-            likes: 15,
-            comments: 8,
-          },
-          reports: [
-            {
-              _id: "report1",
-              reportedBy: {
-                username: "concerned_user1",
-              },
-              reason: "Hate speech",
-              description: "This post contains offensive language and promotes hate",
-              createdAt: "2025-01-05T10:30:00Z",
-            },
-            {
-              _id: "report2",
-              reportedBy: {
-                username: "concerned_user2",
-              },
-              reason: "Inappropriate content",
-              description: "This content is not suitable for the platform",
-              createdAt: "2025-01-05T09:15:00Z",
-            },
-          ],
-          totalReports: 2,
-          status: "pending",
-          lastReportedAt: "2025-01-05T10:30:00Z",
-        },
-        {
-          _id: "2",
-          post: {
-            _id: "post2",
-            content: "Spam content trying to sell fake products. Click here to buy now! Limited time offer!!!",
-            imageUrl: "https://via.placeholder.com/300x200",
-            author: {
-              _id: "user2",
-              username: "spam_account",
-              profilePicture: "https://via.placeholder.com/50",
-            },
-            createdAt: "2025-01-04T14:20:00Z",
-            likes: 2,
-            comments: 1,
-          },
-          reports: [
-            {
-              _id: "report3",
-              reportedBy: {
-                username: "vigilant_user",
-              },
-              reason: "Spam",
-              description: "This is clearly spam content trying to sell fake products",
-              createdAt: "2025-01-04T16:45:00Z",
-            },
-          ],
-          totalReports: 1,
-          status: "pending",
-          lastReportedAt: "2025-01-04T16:45:00Z",
-        },
-        {
-          _id: "3",
-          post: {
-            _id: "post3",
-            content: "This post was reported but found to be legitimate content about art techniques.",
-            imageUrl: "https://via.placeholder.com/300x200",
-            author: {
-              _id: "user3",
-              username: "art_lover",
-              profilePicture: "https://via.placeholder.com/50",
-            },
-            createdAt: "2025-01-03T11:10:00Z",
-            likes: 45,
-            comments: 12,
-          },
-          reports: [
-            {
-              _id: "report4",
-              reportedBy: {
-                username: "misunderstood_user",
-              },
-              reason: "Inappropriate content",
-              description: "I think this might be inappropriate",
-              createdAt: "2025-01-03T12:30:00Z",
-            },
-          ],
-          totalReports: 1,
-          status: "dismissed",
-          lastReportedAt: "2025-01-03T12:30:00Z",
-        },
-      ];
-      
-      setReportedPosts(mockData);
+      const response = await apiService.postService.getReportedPosts(pageToFetch, 20);
+      console.log("Fetched reported posts:", JSON.stringify(response.data, null, 2));
+      const { reports, pagination } = response.data;
+      setHasNextPage(pagination.hasNextPage);
+      if (append) {
+        setReportedPosts(prev => [...prev, ...reports]);
+      } else {
+        setReportedPosts(reports);
+      }
+      setPage(pageToFetch);
     } catch (error) {
       console.error("Error fetching reported posts:", error);
-      Alert.alert("Error", "Failed to fetch reported posts. Please try again.");
+      ToastAndroid.show(
+        "Failed to fetch reported posts. Please try again later.",
+        ToastAndroid.SHORT
+      );
     } finally {
       setRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchReportedPosts();
+      fetchReportedPosts(1);
     }, [])
   );
 
@@ -158,10 +73,30 @@ const ReportedPostsScreen = ({ navigation }) => {
     });
   };
 
+  const sendActionReports = async (postId, action, reason) => {
+    try {
+      const response = await apiService.postService.sendActionReports(postId, action, reason);
+      console.log("Action sent successfully:", response.data);
+      Alert.alert("Success", "Action has been sent successfully!");
+      // Update local state
+      setReportedPosts(prev =>
+        prev.map(item =>
+          item.post._id === postId
+            ? { ...item, status: action === "remove" ? "removed" : "warned" }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Error sending action report:", error);
+      Alert.alert("Error", "Failed to send action report. Please try again.");
+    }
+  };
+
   const removePost = async (postId, reason) => {
     try {
       // Replace with actual API call
       console.log("Removing post:", postId, "Reason:", reason);
+      await sendActionReports(postId, "remove", reason);
       
       Alert.alert("Success", "Post has been removed successfully!");
       
@@ -188,6 +123,8 @@ const ReportedPostsScreen = ({ navigation }) => {
       // Replace with actual API call
       console.log("Warning user:", userId, "for post:", postId, "Reason:", reason);
       
+      await sendActionReports(postId, "warn", reason);
+
       Alert.alert("Success", "Warning has been sent to the user!");
       
       // Update local state
@@ -221,6 +158,8 @@ const ReportedPostsScreen = ({ navigation }) => {
             try {
               // Replace with actual API call
               console.log("Dismissing reports for post:", postId);
+
+              await sendActionReports(postId, "dismiss", "Reports dismissed by admin");
               
               Alert.alert("Success", "Reports have been dismissed!");
               
@@ -272,89 +211,82 @@ const ReportedPostsScreen = ({ navigation }) => {
     }
   };
 
-  const renderReportedPost = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.postCard}
-      onPress={() => showPostDetails(item)}
-    >
-      <View style={styles.postHeader}>
-        <Image source={{ uri: item.post.author.profilePicture }} style={styles.authorAvatar} />
-        <View style={styles.postInfo}>
-          <Text style={styles.authorName}>{item.post.author.username}</Text>
-          <Text style={styles.postDate}>{formatDate(item.post.createdAt)}</Text>
+  const renderReportedPost = ({ item }) => {
+    // item is a report
+    const post = item.post;
+    const reporter = item.reporter;
+    return (
+      <TouchableOpacity 
+        style={styles.postCard}
+        onPress={() => showPostDetails(item)}
+      >
+        <View style={styles.postHeader}>
+          <Image 
+            source={{ uri: post?.preview || post?.media?.[0] || "https://via.placeholder.com/50" }} 
+            style={styles.authorAvatar} 
+          />
+          <View style={styles.postInfo}>
+            <Text style={styles.authorName}>{reporter?.userName || reporter?.firstName || "Unknown"}</Text>
+            <Text style={styles.postDate}>{item.createdAt ? formatDate(item.createdAt) : ""}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
-        </View>
-      </View>
 
-      {item.post.imageUrl && (
-        <Image source={{ uri: item.post.imageUrl }} style={styles.postImage} />
-      )}
+        {post?.preview && (
+          <Image source={{ uri: post.preview }} style={styles.postImage} />
+        )}
 
-      <Text style={styles.postContent} numberOfLines={3}>
-        {item.post.content}
-      </Text>
-
-      <View style={styles.postStats}>
-        <View style={styles.statItem}>
-          <Ionicons name="heart" size={16} color="#F44336" />
-          <Text style={styles.statText}>{item.post.likes}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Ionicons name="chatbubble" size={16} color="#2196F3" />
-          <Text style={styles.statText}>{item.post.comments}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Ionicons name="flag" size={16} color="#FF9800" />
-          <Text style={styles.statText}>{item.totalReports} Reports</Text>
-        </View>
-      </View>
-
-      <View style={styles.reportPreview}>
-        <Text style={styles.reportTitle}>Latest Report:</Text>
-        <Text style={styles.reportReason}>{item.reports[0].reason}</Text>
-        <Text style={styles.reportDescription} numberOfLines={2}>
-          {item.reports[0].description}
+        <Text style={styles.postContent} numberOfLines={3}>
+          {post?.caption || "Post data not available."}
         </Text>
-      </View>
 
-      {item.status === "pending" && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={() => showActionModal(item, "remove")}
-          >
-            <Ionicons name="trash" size={16} color="#fff" />
-            <Text style={styles.buttonText}>Remove</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.warnButton}
-            onPress={() => showActionModal(item, "warn")}
-          >
-            <Ionicons name="warning" size={16} color="#fff" />
-            <Text style={styles.buttonText}>Warn</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.dismissButton}
-            onPress={() => dismissReports(item.post._id)}
-          >
-            <Ionicons name="checkmark" size={16} color="#fff" />
-            <Text style={styles.buttonText}>Dismiss</Text>
-          </TouchableOpacity>
+        <View style={styles.reportPreview}>
+          <Text style={styles.reportTitle}>Report Reason:</Text>
+          <Text style={styles.reportReason}>{item.reason || "No reason"}</Text>
+          <Text style={styles.reportDescription} numberOfLines={2}>
+            Reported by: {reporter?.userName || "Unknown"}
+          </Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
+
+        {item.status === "pending" && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => showActionModal(item, "remove")}
+            >
+              <Ionicons name="trash" size={16} color="#fff" />
+              <Text style={styles.buttonText}>Remove</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.warnButton}
+              onPress={() => showActionModal(item, "warn")}
+            >
+              <Ionicons name="warning" size={16} color="#fff" />
+              <Text style={styles.buttonText}>Warn</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.dismissButton}
+              onPress={() => dismissReports(item?._id)}
+            >
+              <Ionicons name="checkmark" size={16} color="#fff" />
+              <Text style={styles.buttonText}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const pendingPosts = reportedPosts.filter(item => item.status === "pending");
   const resolvedPosts = reportedPosts.filter(item => item.status !== "pending");
 
   return (
     <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Stats */}
       <View style={styles.statsContainer}>
@@ -385,10 +317,29 @@ const ReportedPostsScreen = ({ navigation }) => {
           renderItem={renderReportedPost}
           keyExtractor={(item) => item._id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={fetchReportedPosts} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchReportedPosts(1)} />
           }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
+          onEndReached={() => {
+            if (hasNextPage && !loadingMore) {
+              fetchReportedPosts(page + 1, true);
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            hasNextPage ? (
+              <TouchableOpacity
+                style={{ padding: 16, alignItems: "center" }}
+                onPress={() => fetchReportedPosts(page + 1, true)}
+                disabled={loadingMore}
+              >
+                <Text style={{ color: "#2196F3", fontWeight: "bold" }}>
+                  {loadingMore ? "Loading..." : "Show More"}
+                </Text>
+              </TouchableOpacity>
+            ) : null
+          }
         />
       )}
 
@@ -401,7 +352,7 @@ const ReportedPostsScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.detailModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Post Details</Text>
+              <Text style={styles.modalTitle}>Report Details</Text>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
@@ -409,37 +360,42 @@ const ReportedPostsScreen = ({ navigation }) => {
 
             {selectedPost && (
               <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.postDetailHeader}>
-                  <Image 
-                    source={{ uri: selectedPost.post.author.profilePicture }} 
-                    style={styles.authorAvatar} 
-                  />
-                  <View style={styles.postInfo}>
-                    <Text style={styles.authorName}>{selectedPost.post.author.username}</Text>
-                    <Text style={styles.postDate}>{formatDate(selectedPost.post.createdAt)}</Text>
-                  </View>
-                </View>
+                {/* Show post info if available */}
+                {selectedPost.post ? (
+                  <>
+                    <View style={styles.postDetailHeader}>
+                      <Image 
+                        source={{ uri: selectedPost.post.preview || selectedPost.post.media?.[0] || "https://via.placeholder.com/50" }} 
+                        style={styles.authorAvatar} 
+                      />
+                      <View style={styles.postInfo}>
+                        <Text style={styles.authorName}>{selectedPost.reporter?.userName || selectedPost.reporter?.firstName || "Unknown"}</Text>
+                        <Text style={styles.postDate}>{formatDate(selectedPost.createdAt)}</Text>
+                      </View>
+                    </View>
 
-                {selectedPost.post.imageUrl && (
-                  <Image 
-                    source={{ uri: selectedPost.post.imageUrl }} 
-                    style={styles.detailPostImage} 
-                  />
+                    {selectedPost.post.preview && (
+                      <Image 
+                        source={{ uri: selectedPost.post.preview }} 
+                        style={styles.detailPostImage} 
+                      />
+                    )}
+
+                    <Text style={styles.detailPostContent}>{selectedPost.post.caption}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.detailPostContent}>Post data not available.</Text>
                 )}
 
-                <Text style={styles.detailPostContent}>{selectedPost.post.content}</Text>
-
-                <Text style={styles.reportsTitle}>All Reports ({selectedPost.reports.length}):</Text>
-                {selectedPost.reports.map((report, index) => (
-                  <View key={report._id} style={styles.reportDetailItem}>
-                    <View style={styles.reportDetailHeader}>
-                      <Text style={styles.reportReason}>{report.reason}</Text>
-                      <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
-                    </View>
-                    <Text style={styles.reportDescription}>{report.description}</Text>
-                    <Text style={styles.reportedBy}>Reported by: {report.reportedBy.username}</Text>
+                <Text style={styles.reportsTitle}>Report Info:</Text>
+                <View style={styles.reportDetailItem}>
+                  <View style={styles.reportDetailHeader}>
+                    <Text style={styles.reportReason}>{selectedPost.reason}</Text>
+                    <Text style={styles.reportDate}>{formatDate(selectedPost.createdAt)}</Text>
                   </View>
-                ))}
+                  <Text style={styles.reportedBy}>Reported by: {selectedPost.reporter?.userName || "Unknown"}</Text>
+                  <Text style={styles.reportDescription}>Status: {getStatusText(selectedPost.status)}</Text>
+                </View>
               </ScrollView>
             )}
           </View>
@@ -492,9 +448,9 @@ const ReportedPostsScreen = ({ navigation }) => {
                 ]}
                 onPress={() => {
                   if (selectedPost?.action === "remove") {
-                    removePost(selectedPost.post._id, actionReason);
+                    removePost(selectedPost.post?._id, actionReason);
                   } else {
-                    warnUser(selectedPost.post.author._id, selectedPost.post._id, actionReason);
+                    warnUser(selectedPost.post?.author?._id, selectedPost.post?._id, actionReason);
                   }
                 }}
                 disabled={!actionReason.trim()}
@@ -509,7 +465,7 @@ const ReportedPostsScreen = ({ navigation }) => {
       </Modal>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

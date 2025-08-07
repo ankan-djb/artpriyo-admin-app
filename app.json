@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "admin",
+    "name": "Artpriyo (Admin)",
     "slug": "admin",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,10 +19,23 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.artpriyo.admin"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ea9f5200-40d7-4724-a4ec-25eeb29e7fc2"
+      }
+    },
+    "owner": "apurbasaha2020",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ea9f5200-40d7-4724-a4ec-25eeb29e7fc2"
     }
   }
 }
