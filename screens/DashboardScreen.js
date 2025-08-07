@@ -94,13 +94,23 @@ export default function DashboardScreen() {
           {/* Posts & User Management Section */}
           <Text style={styles.sectionTitle}>Posts & User Management</Text>
           <View style={styles.gridContainer}>
-            <TouchableOpacity style={styles.card}>
+            <TouchableOpacity 
+              style={styles.card}
+              onPress={() => {
+                navigation.navigate("ReportedPosts");
+              }}
+            >
               <Ionicons name="image" size={30} color="red" />
               <Text style={styles.cardText}>Reported Posts</Text>
               <View style={styles.redDot} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.card}>
+            <TouchableOpacity 
+              style={styles.card}
+              onPress={() => {
+                navigation.navigate("ReportedUsers");
+              }}
+            >
               <Ionicons name="people" size={30} color="red" />
               <Text style={styles.cardText}>Reported Users</Text>
               <View style={styles.redDot} />

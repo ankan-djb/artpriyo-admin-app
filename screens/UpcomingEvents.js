@@ -8,33 +8,29 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  SafeAreaView,
+  RefreshControl,
+  StatusBar,
 } from "react-native";
-import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
+import axios from "axios";
+import apiService from "../services/api";
 
 const UpcomingEvents = ({ navigation }) => {
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      axios
-        .get("https://artpriyo-backend.onrender.com/api/event/upcoming-events")
-        .then((response) => setEvents(response.data))
-        .catch((error) => console.error("Error fetching events:", error));
-    }, [])
-  );
   const fetchEvents = async () => {
     setRefreshing(true);
     try {
-      const response = await axios.get(
-        "https://artpriyo-backend.onrender.com/api/event/upcoming-events"
-      );
+      const response = await apiService.eventService.getAllEvents();
       setEvents(response.data);
     } catch (error) {
       console.error("Error fetching events:", error);
+      Alert.alert("Error", "Failed to fetch events. Please try again.");
     } finally {
       setRefreshing(false);
     }
@@ -46,49 +42,25 @@ const UpcomingEvents = ({ navigation }) => {
     }, [])
   );
 
-  // Filter events based on search input
+  // Filter events based on search input and show only upcoming events
   const filteredEvents = events.filter((event) =>
+    event.status === "upcoming" && 
     event.eventName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatEventDate = (startDate, endDate) => {
-    const start = new Date(startDate);
+  const formatEventDate = (endDate) => {
     const end = new Date(endDate);
-
-    const options = { month: "short", day: "numeric" }; // Feb 10
-    const yearOptions = { year: "numeric" }; // 2025
-
-    // Check if the start and end dates are in the same month
-    if (start.getFullYear() === end.getFullYear()) {
-      if (start.getMonth() === end.getMonth()) {
-        return `${start.toLocaleDateString(
-          "en-US",
-          options
-        )} - ${end.getDate()}, ${start.toLocaleDateString(
-          "en-US",
-          yearOptions
-        )}`;
-      }
-      return `${start.toLocaleDateString(
-        "en-US",
-        options
-      )} - ${end.toLocaleDateString(
-        "en-US",
-        options
-      )}, ${start.toLocaleDateString("en-US", yearOptions)}`;
-    }
-
-    return `${start.toLocaleDateString(
-      "en-US",
-      options
-    )}, ${start.getFullYear()} - ${end.toLocaleDateString(
-      "en-US",
-      options
-    )}, ${end.getFullYear()}`;
+    const options = { 
+      year: "numeric",
+      month: "short", 
+      day: "numeric" 
+    };
+    return end.toLocaleDateString("en-US", options);
   };
 
   const convertTo24Hour = (time) => {
-    const [hour, minute] = time.split(/[:\s]/);
+    if (!time) return null;
+    const [hour, minute] = time?.split(/[:\s]/);
     const period = time.toLowerCase().includes("pm") ? "PM" : "AM";
 
     let hour24 = parseInt(hour, 10);
@@ -98,25 +70,55 @@ const UpcomingEvents = ({ navigation }) => {
     return `${hour24.toString().padStart(2, "0")}:${minute}`;
   };
 
-  const calculateTimeRemaining = (startDate, startTime, endDate, endTime) => {
-    const start = new Date(`${startDate} ${convertTo24Hour(startTime)}`);
-    const end = new Date(`${endDate} ${convertTo24Hour(endTime)}`);
+  const calculateTimeRemaining = (endDate, endTime) => {
+    if (!endDate || !endTime) return "Time not set";
+    
+    const timeString = convertTo24Hour(endTime);
+    if (!timeString) return "Time not set";
+    
+    const end = new Date(`${endDate} ${timeString}`);
+    const now = new Date();
 
-    const diffMs = end - start; // Time difference in milliseconds
-    if (diffMs <= 0) return "Event Ended"; // If event already ended
+    const diffMs = end - now;
+    if (diffMs <= 0) return "Event Ended";
 
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(
-      (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-    );
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${days}d | ${hours}h | ${minutes}m\nremaining`;
+    return `${days}d ${hours}h ${minutes}m`;
+  };
+
+  const startEvent = async (eventId, eventName) => {
+    Alert.alert(
+      "Start Event", 
+      `Are you sure you want to start "${eventName}"?`, 
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Start",
+          style: "default",
+          onPress: async () => {
+            try {
+              // Add your start event API call here
+             const response = await apiService.eventService.startEvent(eventId);
+              
+              if (response.status === 200) {
+              // Assuming the API call is successful
+                Alert.alert("Success", `Event "${eventName}" has been started!`);
+                fetchEvents(); // Refresh the list
+              }
+            } catch (error) {
+              console.error("Error starting event:", error);
+              Alert.alert("Error", "Failed to start event. Please try again.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const deleteEvent = async (eventId) => {
-    console.log(eventId);
-
     Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -124,14 +126,15 @@ const UpcomingEvents = ({ navigation }) => {
         style: "destructive",
         onPress: async () => {
           try {
-            await axios.delete(
-              `https://artpriyo-backend.onrender.com/api/event/delete-event/${eventId}`
-            );
+            // Replace with proper API service call when available
+            await apiService.eventService.deleteEvent(eventId);
             setEvents((prevEvents) =>
               prevEvents.filter((event) => event._id !== eventId)
             );
+            Alert.alert("Success", "Event deleted successfully!");
           } catch (error) {
             console.error("Error deleting event:", error);
+            Alert.alert("Error", "Failed to delete event. Please try again.");
           }
         },
       },
@@ -139,11 +142,14 @@ const UpcomingEvents = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
       {/* Search Bar */}
       <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
         <TextInput
-          placeholder="Search for competitions"
+          placeholder="Search events..."
           style={styles.searchInput}
           value={search}
           onChangeText={(text) => setSearch(text)}
@@ -159,9 +165,9 @@ const UpcomingEvents = ({ navigation }) => {
             }}
             style={styles.noEventsImage}
           />
-          <Text style={styles.noEventsText}>No events found</Text>
+          <Text style={styles.noEventsText}>No upcoming events found</Text>
           <Text style={styles.noEventsSubText}>
-            Try searching with a different keyword.
+            {search ? "Try searching with a different keyword." : "Create a new event to get started!"}
           </Text>
         </View>
       ) : (
@@ -169,61 +175,80 @@ const UpcomingEvents = ({ navigation }) => {
           data={filteredEvents}
           showsVerticalScrollIndicator={false}
           keyExtractor={(item) => item._id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          key={2}
+          numColumns={1}
           renderItem={({ item }) => (
             <View style={styles.eventCard}>
-              <View
-                style={[
-                  styles.eventImageContainer,
-                  { backgroundColor: item.isJoined ? "#FFCC80" : "#444" },
-                ]}
-              >
-                <Image source={{ uri: item.image }} style={styles.eventImage} />
-              </View>
-              <View style={styles.eventInfo}>
-                <Text style={styles.eventTitle}>{item.eventName}</Text>
-                <Text style={styles.eventDate}>
-                  {formatEventDate(item.startDate, item.endDate)}
-                </Text>
-                <Text style={styles.countdown}>
-                  ⏳{" "}
-                  {calculateTimeRemaining(
-                    item.startDate,
-                    item.startTime,
-                    item.endDate,
-                    item.endTime
-                  )}
-                </Text>
-                <Text style={styles.entryFee}>
-                  💰 Entry Fee: ₹{item.entryFee} Only
-                </Text>
-                <Text style={styles.participants}>
-                  👥 {item.participants || 0} Participants
-                </Text>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() =>
-                    navigation.navigate("EditEvent", { event: item })
-                  }
-                >
-                  <Text style={styles.editButtonText}>✏️ Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() => deleteEvent(item._id)}
-                >
-                  <Text style={styles.editButtonText}>✏️ Delete</Text>
-                </TouchableOpacity>
+              <Image source={{ uri: item.image }} style={styles.eventImage} />
+              
+              <View style={styles.eventContent}>
+                <View style={styles.eventHeader}>
+                  <Text style={styles.eventTitle} numberOfLines={2}>{item.eventName}</Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>ACTIVE</Text>
+                  </View>
+                </View>
+
+                <View style={styles.eventDetails}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar-outline" size={16} color="#666" />
+                    <Text style={styles.eventDate}>
+                      Ends: {formatEventDate(item.endDate)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Ionicons name="time-outline" size={16} color="#666" />
+                    <Text style={styles.countdown}>
+                      {calculateTimeRemaining(item.endDate, item.endTime)} remaining
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailsRow}>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="cash-outline" size={14} color="#4CAF50" />
+                      <Text style={styles.entryFee}>₹{item.entryFee}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="trophy-outline" size={14} color="#FF9800" />
+                      <Text style={styles.prizePool}>₹{item.prizePool}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.startButton}
+                    onPress={() => startEvent(item._id, item.eventName)}
+                  >
+                    <Ionicons name="play" size={14} color="#fff" />
+                    <Text style={styles.buttonText}>Start</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => navigation.navigate("EditEvent", { event: item })}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#fff" />
+                    <Text style={styles.buttonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => deleteEvent(item._id)}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#fff" />
+                    <Text style={styles.buttonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           )}
-          refreshing={refreshing}
-          onRefresh={fetchEvents} // Enable pull-to-refresh
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={fetchEvents} />
+          }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -231,143 +256,234 @@ const UpcomingEvents = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    backgroundColor: "#f7f7f7",
+    backgroundColor: "#f8f9fa",
+    paddingBottom: 40,
   },
-  heading: {
-    fontSize: 22,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  headerTitle: {
+    fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 10,
+    color: "#333",
+  },
+  addButton: {
+    backgroundColor: "#4A90E2",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   searchBar: {
     backgroundColor: "#fff",
     borderRadius: 15,
     paddingHorizontal: 15,
     paddingVertical: 5,
-    marginBottom: 10,
+    marginVertical: 10,
+    marginHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
+    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    elevation: 3,
+  },
+  searchIcon: {
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: "#333",
-  },
-  row: {
-    justifyContent: "space-between", // Make 2 cards per row
-    margin: 5,
+    paddingVertical: 10,
   },
   eventCard: {
     backgroundColor: "white",
     borderRadius: 15,
-    width: "48%", // Adjust for 2 columns
+    marginHorizontal: 20,
+    marginBottom: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 5,
     overflow: "hidden",
-  },
-  eventImageContainer: {
-    width: "100%",
-    height: 120,
-    alignItems: "center",
-    justifyContent: "center",
   },
   eventImage: {
     width: "100%",
-    height: "100%",
+    height: 160,
     resizeMode: "cover",
   },
-  eventInfo: {
-    padding: 8,
+  eventContent: {
+    padding: 12,
+  },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
   },
   eventTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    color: "#333",
+    flex: 1,
+    marginRight: 10,
+  },
+  statusBadge: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  eventDetails: {
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   eventDate: {
     color: "#666",
-    fontSize: 14,
-    marginBottom: 5,
+    fontSize: 13,
+    marginLeft: 6,
+    fontWeight: "500",
   },
   countdown: {
-    color: "red",
-    fontSize: 14,
-    marginBottom: 5,
+    color: "#FF5722",
+    fontSize: 13,
+    marginLeft: 6,
+    fontWeight: "600",
   },
   entryFee: {
-    fontSize: 14,
-    marginBottom: 5,
+    fontSize: 12,
+    marginLeft: 4,
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  prizePool: {
+    fontSize: 12,
+    marginLeft: 4,
+    color: "#FF9800",
+    fontWeight: "600",
   },
   participants: {
     fontSize: 14,
-    marginBottom: 10,
+    marginLeft: 8,
+    color: "#2196F3",
+    fontWeight: "500",
   },
-  actionButton: {
-    padding: 10,
-    borderRadius: 8,
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  startButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  joinBtn: {
-    backgroundColor: "green",
+  editButton: {
+    backgroundColor: "#2196F3",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  joinedBtn: {
-    backgroundColor: "black",
+  deleteButton: {
+    backgroundColor: "#F44336",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   buttonText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 12,
+    fontWeight: "bold",
+    marginLeft: 4,
   },
-
   // No Events Styles
   noEventsContainer: {
     alignItems: "center",
-    marginTop: 50,
+    justifyContent: "center",
+    flex: 1,
+    paddingHorizontal: 40,
   },
   noEventsImage: {
     width: 150,
     height: 150,
     marginBottom: 20,
+    opacity: 0.6,
   },
   noEventsText: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,
+    textAlign: "center",
   },
   noEventsSubText: {
     fontSize: 16,
     color: "#777",
     textAlign: "center",
-    width: "80%",
-  },
-  editButton: {
-    backgroundColor: "#1E1E1E", // Sleek dark gray/black
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  editButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-    textTransform: "uppercase", // Makes it look professional
+    lineHeight: 22,
   },
 });
 

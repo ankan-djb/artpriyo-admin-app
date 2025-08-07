@@ -199,6 +199,20 @@ const eventService = {
   getAllEvents: async () => {
     return axiosInstance.get("/event/get-events");
   },
+  // Start an event
+  startEvent: async (id) => {
+    return axiosInstance.post(`/event/update-status/ongoing/${id}`);
+  },
+
+  // Delete an event
+  deleteEvent: async (id) => {
+    return axiosInstance.delete(`/event/delete-event/${id}`);
+  },
+  // Edit an event
+  editEvent: async (eventId, data) => {
+    return axiosInstance.put(`/event/update-event/${eventId}`, data);
+  },
+
 
   // Get event leaderboard
   getEventLeaderboard: async (eventId) => {

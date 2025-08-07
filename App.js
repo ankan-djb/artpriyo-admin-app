@@ -13,6 +13,8 @@ import AdminLogin from "./screens/AdminLogin";
 import ManageAdmin from "./screens/ManageAdmin";
 import EditAdminPermissions from "./screens/EditAdminPermissions";
 import Leaderboard from "./screens/Leaderboard";
+import ReportedUsersScreen from "./screens/ReportedUsersScreen";
+import ReportedPostsScreen from "./screens/ReportedPostsScreen";
 
 const Stack = createStackNavigator();
 
@@ -115,6 +117,22 @@ export default function App() {
           options={{
             headerShown: true,
             title: "Leaderboard",
+          }}
+        />
+        <Stack.Screen
+          name="ReportedUsers"
+          component={ReportedUsersScreen}
+          options={{
+            headerShown: true,
+            title: "Reported Users",
+          }}
+        />
+        <Stack.Screen
+          name="ReportedPosts"
+          component={ReportedPostsScreen}
+          options={{
+            headerShown: true,
+            title: "Reported Posts",
           }}
         />
       </Stack.Navigator>
